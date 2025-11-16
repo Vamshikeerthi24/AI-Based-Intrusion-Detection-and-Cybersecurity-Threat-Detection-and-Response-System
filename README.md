@@ -10,41 +10,6 @@ Explainability: SHAP for feature importance, with OpenAI API generating human-re
 Dashboard: Streamlit interface for real-time monitoring, blocklist management, and testing flows.
 Logging and Configuration: Centralized logging (logs/app.log) and configuration (config/config.yaml).
 
-Repository Structure
-ids_repoV1/
-├── data/                      # Synthetic and captured datasets
-│   ├── synth_flows.parquet    # Synthetic data (5800 rows)
-│   ├── flows.parquet          # Processed data for training
-│   └── flows.csv              # Captured real traffic (optional)
-├── models/                    # Trained ML models
-│   ├── rf.joblib              # Random Forest model
-│   └── iso.joblib             # Isolation Forest model
-├── blocklist/                 # JSON blocklist for response actions
-│   └── blocklist.json
-├── logs/                      # Application logs
-│   └── app.log
-├── config/                    # Configuration files
-│   └── config.yaml
-├── train/                     # Data generation and training scripts
-│   ├── generate_synth.py
-│   ├── prepare.py
-│   ├── train_supervised.py
-│   └── train_unsupervised.py
-├── app/                       # FastAPI, Streamlit, and utility modules
-│   ├── api.py
-│   ├── explain.py
-│   ├── features.py
-│   ├── response.py
-│   ├── schemas.py
-│   └── streamlit_app.py
-├── utils/                     # Shared utilities
-│   ├── __init__.py
-│   └── utils.py
-├── data.py                    # Captures real traffic with TShark
-├── requirements.txt           # Python dependencies
-├── .gitignore                 # Git ignore rules
-└── README.md                  # This file
-
 Prerequisites
 
 Python: 3.11 or higher
