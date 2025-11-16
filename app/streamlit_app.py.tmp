@@ -1,0 +1,263 @@
+import sys
+from pathlib import Path
+import os
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+# Lightweight runtime detection without importing Streamlit
+def _running_under_streamlit() -> bool:
+    if any(name.startswith('STREAMLIT_') for name in os.environ.keys()):
+        return True
+    if any('streamlit' in (arg or '').lower() for arg in sys.argv):
+        return True
+    return False
+
+
+if not _running_under_streamlit():
+    print("This file is a Streamlit app. Run it with:\n\n    streamlit run app/streamlit_app.py\n")
+    sys.exit(0)
+
+import streamlit as st
+import requests
+import json
+from typing import List, Dict, Any
+from utils.utils import setup_logging
+
+logger = setup_logging()
+
+# Paths
+BLOCKLIST_DIR = Path('blocklist')
+BLOCKLIST_PATH = BLOCKLIST_DIR / 'blocklist.json'
+
+# Defaults
+DEFAULT_BACKEND = 'http://127.0.0.1:8000'
+
+
+# Helpers
+def ensure_blocklist_exists() -> None:
+    """Ensure the blocklist directory and file exist."""
+    BLOCKLIST_DIR.mkdir(parents=True, exist_ok=True)
+    if not BLOCKLIST_PATH.exists():
+        BLOCKLIST_PATH.write_text(json.dumps([]))
+
+
+def load_blocklist() -> List[str]:
+    ensure_blocklist_exists()
+    try:
+        text = BLOCKLIST_PATH.read_text(encoding='utf-8')
+        return json.loads(text)
+    except json.JSONDecodeError:
+        logger.error('blocklist JSON corrupted, recreating empty list')
+        BLOCKLIST_PATH.write_text(json.dumps([]))
+        return []
+
+
+def save_blocklist(entries: List[str]) -> None:
+    ensure_blocklist_exists()
+    BLOCKLIST_PATH.write_text(json.dumps(entries, indent=2))
+
+
+def backend_health(backend_url: str) -> Dict[str, Any]:
+    """Return dict with status and optional message."""
+    health = {'ok': False, 'msg': ''}
+    try:
+        r = requests.get(backend_url.rstrip('/') + '/docs', timeout=3)
+        if r.status_code == 200:
+            health['ok'] = True
+            health['msg'] = 'Backend reachable (docs)'
+        else:
+            health['msg'] = f'Backend responded (status {r.status_code})'
+    except requests.RequestException as e:
+        health['msg'] = str(e)
+    return health
+
+
+# UI
+st.set_page_config(page_title='Intrusion Detection Dashboard', layout='wide')
+
+st.sidebar.title('Settings')
+backend_url = st.sidebar.text_input('Backend URL', value=st.session_state.get('backend_url', DEFAULT_BACKEND))
+if st.sidebar.button('Save Backend URL'):
+    st.session_state['backend_url'] = backend_url
+
+st.sidebar.markdown('---')
+if st.sidebar.button('Refresh Backend Status'):
+    st.session_state['backend_status'] = backend_health(backend_url)
+
+status = st.session_state.get('backend_status') or backend_health(backend_url)
+if status['ok']:
+    st.sidebar.success('Backend: OK')
+else:
+    st.sidebar.warning(f"Backend: {status['msg']}")
+
+st.title('Intrusion Detection Dashboard')
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.header('Test Flow')
+    with st.form('test_flow_form'):
+        src_ip = st.text_input('Source IP', value='10.0.0.1')
+        dst_ip = st.text_input('Destination IP', value='10.0.0.2')
+        sport = st.number_input('Source Port', value=12345, min_value=0, max_value=65535)
+        dport = st.number_input('Destination Port', value=80, min_value=0, max_value=65535)
+        proto = st.selectbox('Protocol', ['tcp', 'udp', 'icmp'], index=0)
+        dur = st.number_input('Duration', value=0.5, format='%.3f')
+        sbytes = st.number_input('Source Bytes', value=1000)
+        dbytes = st.number_input('Destination Bytes', value=500)
+        pkts = st.number_input('Packets', value=10)
+        state = st.text_input('State', value='EST')
+        ct_flw_http_mthd = st.number_input('ct_flw_http_mthd', value=1)
+        ct_state_ttl = st.number_input('ct_state_ttl', value=1.0, format='%.3f')
+        ct_srv_src = st.number_input('ct_srv_src', value=1)
+        submitted = st.form_submit_button('Send Test Flow')
+
+    if submitted:
+        test_flow = {
+            'src_ip': src_ip, 'dst_ip': dst_ip, 'sport': int(sport), 'dport': int(dport),
+            'proto': proto, 'dur': float(dur), 'sbytes': int(sbytes), 'dbytes': int(dbytes), 'pkts': int(pkts),
+            'state': state, 'ct_flw_http_mthd': int(ct_flw_http_mthd), 'ct_state_ttl': float(ct_state_ttl), 'ct_srv_src': int(ct_srv_src)
+        }
+        try:
+            r = requests.post(backend_url.rstrip('/') + '/ingest', json=test_flow, timeout=5)
+            try:
+                data = r.json()
+            except ValueError:
+                st.error('Backend returned invalid JSON')
+                logger.error('Invalid JSON from backend: %s', r.text)
+                data = {'error': 'Invalid JSON', 'status': r.status_code}
+            st.success('Response received from backend')
+            st.json(data)
+            # store session history
+            history = st.session_state.get('history', [])
+            history.insert(0, {'flow': test_flow, 'response': data})
+            st.session_state['history'] = history[:50]
+        except requests.RequestException as e:
+            st.error(f'Failed to contact backend: {e}')
+            logger.error('Failed to POST test flow: %s', e)
+
+    st.markdown('---')
+    st.header('Session History')
+    history = st.session_state.get('history', [])
+    for i, item in enumerate(history):
+        with st.expander(f"#{i+1} {item['flow']['src_ip']} -> {item['flow']['dst_ip']}"):
+            st.write('Flow')
+            st.json(item['flow'])
+            st.write('Response')
+            st.json(item['response'])
+
+with col2:
+    st.header('Blocklist Manager')
+    ensure_blocklist_exists()
+    entries = load_blocklist()
+
+    # Search / Filter
+    search = st.text_input('Search blocklist (substring)')
+    if search:
+        filtered = [ip for ip in entries if search in ip]
+    else:
+        filtered = entries
+
+    st.write(f'Current blocked IPs ({len(entries)})')
+    for ip in filtered:
+        st.write('- ' + ip)
+
+    # Add IP
+    new_ip = st.text_input('Add IP to blocklist', key='add_ip')
+    if st.button('Add IP'):
+        if new_ip:
+            if new_ip in entries:
+                st.warning('IP already in blocklist')
+            else:
+                entries.append(new_ip)
+                save_blocklist(entries)
+                st.success(f'Added {new_ip} to blocklist')
+                st.experimental_rerun()
+        else:
+            st.warning('Enter an IP address to add')
+
+    # Remove IP
+    st.markdown('### Remove IP')
+    remove_ip = st.selectbox('Select IP to remove', options=([''] + entries))
+    if st.button('Remove IP'):
+        if remove_ip and remove_ip in entries:
+            entries = [e for e in entries if e != remove_ip]
+            save_blocklist(entries)
+            st.success(f'Removed {remove_ip} from blocklist')
+            st.experimental_rerun()
+        else:
+            st.warning('No IP selected or not in blocklist')
+
+    st.markdown('---')
+    # Import/Export
+    st.header('Import / Export')
+    uploaded = st.file_uploader('Import blocklist CSV (one IP per line or header "ip")', type=['csv', 'txt'])
+    if uploaded is not None:
+        try:
+            content = uploaded.getvalue().decode('utf-8')
+            lines = [l.strip() for l in content.splitlines() if l.strip()]
+            # support CSV with header
+            if lines and ',' in lines[0]:
+                # try parse csv header
+                parts = [p.strip().lower() for p in lines[0].split(',')]
+                if 'ip' in parts:
+                    idx = parts.index('ip')
+                    new_entries = [ln.split(',')[idx].strip() for ln in lines[1:] if ln.strip()]
+                else:
+                    new_entries = lines
+            else:
+                new_entries = lines
+            merged = list(dict.fromkeys(entries + new_entries))
+            save_blocklist(merged)
+            st.success(f'Imported {len(new_entries)} entries; total now {len(merged)}')
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f'Failed to import file: {e}')
+
+    if st.button('Export blocklist as CSV'):
+        try:
+            csv_text = 'ip\n' + '\n'.join(entries)
+            st.download_button('Download CSV', data=csv_text, file_name='blocklist.csv', mime='text/csv')
+        except Exception as e:
+            st.error(f'Failed to prepare export: {e}')
+
+    st.markdown('---')
+    st.header('Blocklist Stats')
+    st.metric('Total blocked IPs', len(entries))
+
+    st.markdown('---')
+    st.header('Backend Status')
+    if status['ok']:
+        st.success('Backend reachable')
+        st.write(status['msg'])
+    else:
+        st.error('Backend unreachable')
+        st.write(status['msg'])
+
+    st.markdown('---')
+    st.header('Visualizations & Stats')
+    # Session history stats
+    history = st.session_state.get('history', [])
+    try:
+        from app.visual.visuals import render_visuals
+        render_visuals(history)
+    except Exception as e:
+        st.error(f'Failed to load visuals module: {e}')
+        # fallback to basic display
+        if history:
+            st.write(history)
+        else:
+            st.info('No session history yet. Send some test flows to generate stats.')
+
+    st.markdown('---')
+    st.header('Utilities')
+    if st.button('Open API Docs (in browser)'):
+        import webbrowser
+        webbrowser.open_new_tab(backend_url.rstrip('/') + '/docs')
+
+    st.markdown('''
+    **Notes**
+    - Ensure FastAPI is running before using "Send Test Flow".
+    - Blocklist changes are persisted to `blocklist/blocklist.json`.
+    - Import expects either one IP per line or CSV with header 'ip'.
+    ''')
+EOF

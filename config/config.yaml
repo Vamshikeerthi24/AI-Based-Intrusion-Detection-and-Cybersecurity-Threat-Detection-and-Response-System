@@ -1,0 +1,6 @@
+﻿risk_threshold: 0.85
+block_ttl_minutes: 15
+# OpenAI API key must NOT be hard-coded. Provide it via an environment variable
+# or a secrets manager. Example: set `OPENAI_API_KEY` in a local `.env` file.
+openai_api_key: "REDACTED"
+log_level: INFO

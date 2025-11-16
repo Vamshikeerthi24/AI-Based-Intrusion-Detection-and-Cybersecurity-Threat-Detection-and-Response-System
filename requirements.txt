@@ -1,0 +1,15 @@
+pandas==2.2.3
+scikit-learn==1.4.2
+joblib
+fastapi
+uvicorn
+pydantic
+streamlit
+requests
+pyarrow
+shap
+openai
+pyyaml
+
+# dotenv for loading .env files
+python-dotenv
