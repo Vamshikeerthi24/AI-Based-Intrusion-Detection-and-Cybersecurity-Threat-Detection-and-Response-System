@@ -99,75 +99,6 @@ textids_repoV1/
 Technology Stack (Production Versions)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 LayerTechnologyVersionPurposeBackend FrameworkFastAPI≥0.109.0High-performance APIASGI ServerUvicorn≥0.27.0Production serverFrontend DashboardStreamlit≥1.39.0Operations interfaceClassical MLscikit-learn1.7.2Core supervised/unsupervised modelsDeep LearningPyTorch (CPU)2.9.1Autoencoders, LSTM, TransformerVector SearchFAISS-CPU1.7.4Attack pattern memoryLLM InterfaceOpenAI Python SDK≥1.3.0GPT-4 structured analysisData Processingpandas / NumPy2.2.0 / 1.24+Flow manipulationExplainabilitySHAP≥0.42.0Feature importance (fallback)ConfigurationPyYAML + dotenvLatestSecure config management
 
 One-Click Enterprise Deployment
@@ -233,34 +164,6 @@ DEBUG=false
 Fallback values in config/config.yaml.
 
 Machine Learning Ensemble Composition
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 CategoryModels IncludedWeightSupervisedRandom Forest, Gradient Boosting, SVM (RBF)55%UnsupervisedIsolation Forest, LOF, Dense Autoencoder, LSTM-AE30%Deep LearningNeural Network Ensemble, LSTM, Transformer-based15%Vector PatternFAISS + TF-IDF semantic similarity matchingContextual boost
