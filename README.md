@@ -2,21 +2,17 @@
 
 **Enterprise-Grade · Production-Ready · Research-Level Implementation**  
 **Author:** Vamshi Krishna  
-**Program:** Cybersecurity & Artificial Intelligence  
+**Program:** Master’s in Cybersecurity & Artificial Intelligence  
 **Completion Date:** November 19, 2025  
-**Status:** Fully Operational · Actively Maintained 
+**Status:** Fully Operational · Actively Maintained ·
 
 ---
 
 ## Executive Summary
 
-The **IDRS** is a complete, end-to-end, real-time Network Intrusion Detection 
-and Automated Response System that fuses 12+ machine learning models across 
-supervised, unsupervised, deep learning, and vector-search paradigms.
-It delivers a single, interpretable risk score, executes automated blocking actions,
-persists attack patterns in a FAISS vector store for semantic similarity matching, and generates structured natural-language threat analysis using OpenAI GPT-4.
+The **IDRS** is a complete, end-to-end, real-time Network Intrusion Detection and Automated Response System that fuses 12+ machine learning models across supervised, unsupervised, deep learning, and vector-search paradigms. It delivers a single, interpretable risk score, executes automated blocking actions, persists attack patterns in a FAISS vector store for semantic similarity matching, and generates structured natural-language threat analysis using OpenAI GPT-4.
 
-Built as a Fall 2025 master’s capstone project, the system meets the architectural and code-quality standards expected for cybersecurity product organization.
+Built as a Fall 2025 master’s capstone project, the system meets the architectural and code-quality standards expected cybersecurity product organization.
 
 ---
 
@@ -68,7 +64,6 @@ Supervised      Unsupervised   Deep Learning   Vector Store
               │
               ▼
       JSON Response + Blocklist Update
-
 Repository Structure
 textids_repoV1/
 ├── app/
@@ -103,7 +98,7 @@ textids_repoV1/
 Technology Stack (Production Versions)
 
 
-LayerTechnologyVersionPurposeBackend FrameworkFastAPI≥0.109.0High-performance APIASGI ServerUvicorn≥0.27.0Production serverFrontend DashboardStreamlit≥1.39.0Operations interfaceClassical MLscikit-learn1.7.2Core supervised/unsupervised modelsDeep LearningPyTorch (CPU)2.9.1Autoencoders, LSTM, TransformerVector SearchFAISS-CPU1.7.4Attack pattern memoryLLM InterfaceOpenAI Python SDK≥1.3.0GPT-4 structured analysisData Processingpandas / NumPy2.2.0 / 1.24+Flow manipulationExplainabilitySHAP≥0.42.0Feature importance (fallback)ConfigurationPyYAML + dotenvLatestSecure config management
+![alt text](image.png)
 
 One-Click Enterprise Deployment
 Double-click LAUNCH_IDRS.bat → everything starts automatically:
@@ -166,13 +161,7 @@ BLOCK_TTL_MINUTES=30
 LOG_LEVEL=INFO
 DEBUG=false
 Fallback values in config/config.yaml.
-
-Machine Learning Ensemble Composition
-
-
-CategoryModels IncludedWeightSupervisedRandom Forest, Gradient Boosting, SVM (RBF)55%UnsupervisedIsolation Forest, LOF, Dense Autoencoder, LSTM-AE30%Deep LearningNeural Network Ensemble, LSTM, Transformer-based15%Vector PatternFAISS + TF-IDF semantic similarity matchingContextual boost
-Final risk score = weighted linear combination with configurable thresholds.
-
+![alt text](image-2.png)
 Operations Dashboard Features
 
 Manual flow testing + CSV batch upload with validation
@@ -209,7 +198,6 @@ Plain-English threat explanation
 List of risk factors
 Actionable mitigation recommendations
 Detection confidence score (0–1)
-
 
 
 Production Readiness Features
