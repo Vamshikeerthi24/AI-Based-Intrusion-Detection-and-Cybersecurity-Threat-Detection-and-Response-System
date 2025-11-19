@@ -16,7 +16,7 @@ supervised, unsupervised, deep learning, and vector-search paradigms.
 It delivers a single, interpretable risk score, executes automated blocking actions,
 persists attack patterns in a FAISS vector store for semantic similarity matching, and generates structured natural-language threat analysis using OpenAI GPT-4.
 
-Built as a Fall 2025 master’s capstone project, the system meets the architectural and code-quality standards expected from a $1M+ cybersecurity product organization.
+Built as a Fall 2025 master’s capstone project, the system meets the architectural and code-quality standards expected for cybersecurity product organization.
 
 ---
 
