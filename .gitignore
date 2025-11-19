@@ -6,7 +6,3 @@ blocklist/
 logs/
 __pycache__/
 *.pyc
-# Local environment files
-.env
-.env.*
-.env.local

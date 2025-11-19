@@ -19,12 +19,13 @@ class FlowVectorStore:
         self.vectorizer = TfidfVectorizer(
             analyzer='word',
             ngram_range=(1, 3),
-            max_features=384  # Match FAISS dimension
+            max_features=128  # Use smaller, more stable dimension
         )
-        self.dimension = 384
+        self.dimension = 128
         self.index = None  # Will be initialized after first flow
         self.flows: List[Dict[str, Any]] = []
         self._is_initialized = False
+        self._sample_texts = []  # Collect samples for fitting
         
     def _flow_to_text(self, flow: Dict[str, Any]) -> str:
         """Convert a flow dict to a textual representation for embedding."""
@@ -37,6 +38,7 @@ class FlowVectorStore:
     def add_flow(self, flow: Dict[str, Any], metadata: Optional[Dict] = None) -> None:
         """Add a flow to the vector store with optional metadata."""
         text = self._flow_to_text(flow)
+        self._sample_texts.append(text)
         
         # Store the flow data and metadata
         flow_entry = {
@@ -47,18 +49,36 @@ class FlowVectorStore:
         }
         self.flows.append(flow_entry)
         
-        # Initialize or update the TF-IDF model and FAISS index
-        if not self._is_initialized:
-            # Fit the vectorizer on the first flow
-            self.vectorizer.fit([text])
+        # Initialize after collecting 2 samples or first flow
+        if len(self._sample_texts) >= 2 and not self._is_initialized:
+            self.vectorizer.fit(self._sample_texts)
             self.index = faiss.IndexFlatL2(self.dimension)
             self._is_initialized = True
-        
-        # Transform text to embedding
+            # Add all collected flows to index
+            for flow_entry in self.flows:
+                self._add_to_index(flow_entry['text_repr'])
+        elif not self._is_initialized and len(self.flows) > 0:
+            # First flow - initialize with just this one
+            self.vectorizer.fit(self._sample_texts)
+            self.index = faiss.IndexFlatL2(self.dimension)
+            self._is_initialized = True
+            self._add_to_index(text)
+        elif self._is_initialized:
+            # Already initialized, just add this flow
+            self._add_to_index(text)
+    
+    def _add_to_index(self, text: str) -> None:
+        """Add a single text embedding to the FAISS index."""
         embedding = self.vectorizer.transform([text]).toarray()[0]
-        normalized = embedding / (np.linalg.norm(embedding) + 1e-10)  # Prevent division by zero
         
-        # Add to FAISS index
+        # Ensure embedding has the right dimension
+        if len(embedding) != self.dimension:
+            if len(embedding) > self.dimension:
+                embedding = embedding[:self.dimension]
+            else:
+                embedding = np.pad(embedding, (0, self.dimension - len(embedding)), mode='constant', constant_values=0)
+        
+        normalized = embedding / (np.linalg.norm(embedding) + 1e-10)
         self.index.add(np.array([normalized], dtype=np.float32))
     
     def search_similar(self, flow: Dict[str, Any], k: int = 5) -> List[Dict[str, Any]]:
@@ -68,6 +88,14 @@ class FlowVectorStore:
         
         query_text = self._flow_to_text(flow)
         query_embedding = self.vectorizer.transform([query_text]).toarray()[0]
+        
+        # Ensure query embedding has the right dimension
+        if len(query_embedding) != self.dimension:
+            if len(query_embedding) > self.dimension:
+                query_embedding = query_embedding[:self.dimension]
+            else:
+                query_embedding = np.pad(query_embedding, (0, self.dimension - len(query_embedding)), mode='constant', constant_values=0)
+        
         query_normalized = query_embedding / (np.linalg.norm(query_embedding) + 1e-10)
         
         # Search the index

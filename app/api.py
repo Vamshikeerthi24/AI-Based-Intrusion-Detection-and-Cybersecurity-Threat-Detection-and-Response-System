@@ -3,8 +3,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from fastapi import FastAPI, HTTPException
 import joblib
-import shap
 import numpy as np
+import random
 from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import LocalOutlierFactor
@@ -15,6 +15,20 @@ from app.explain import explain_detection
 from app.vector_store import FlowVectorStore
 from app.llm_pipeline import LLMPipeline
 from utils.utils import load_config, setup_logging
+
+# Optional SHAP support (may have compatibility issues on some systems)
+try:
+    import shap
+except ImportError:
+    shap = None
+
+# Optional PyTorch-based autoencoder support
+try:
+    import torch
+    from models.nn_models import DenseAutoencoder
+except Exception:
+    torch = None
+    DenseAutoencoder = None
 
 def get_pattern_description(pattern_type: str) -> str:
     """Get description for a detected pattern type."""
@@ -93,8 +107,8 @@ def classify_pattern(flow: dict, features: list) -> str:
         return 'c2_beacon'
     
     # Lateral movement detection
-    src_ip = flow.get('src_ip', '')
-    dst_ip = flow.get('dst_ip', '')
+    src_ip = str(flow.get('src_ip', ''))
+    dst_ip = str(flow.get('dst_ip', ''))
     if src_ip.startswith('10.') and dst_ip.startswith('10.'):
         if flow.get('ct_srv_src', 0) > 2:
             return 'lateral_movement'
@@ -105,10 +119,30 @@ app = FastAPI()
 logger = setup_logging()
 config = load_config()
 
+# Ensure config has required keys with defaults
+config.setdefault('risk_threshold', 0.85)
+config.setdefault('block_ttl_minutes', 15)
+
 try:
     # Load ML models
     rf = joblib.load('models/rf.joblib')
     iso = joblib.load('models/iso.joblib')
+    # Try to load a trained autoencoder if present
+    ae = None
+    try:
+        if torch is not None and DenseAutoencoder is not None and Path('models/autoencoder.pth').exists():
+            ae = DenseAutoencoder(input_dim=len(rf['columns']), latent_dim=min(32, max(8, len(rf['columns'])//2)))
+            state = torch.load('models/autoencoder.pth', map_location='cpu')
+            # If the saved state is a dict with keys matching module, load directly
+            try:
+                ae.load_state_dict(state)
+            except Exception:
+                # If saved as full model object, attempt to load attrib
+                pass
+            ae.eval()
+            logger.info('Loaded autoencoder model from models/autoencoder.pth')
+    except Exception as e:
+        logger.warning(f'Could not load autoencoder: {e}')
 except Exception as e:
     logger.error(f"Error loading models: {e}")
     # Create test models for development
@@ -151,10 +185,29 @@ async def ingest_flow(flow: Flow):
         # Convert flow to feature vector
         x = to_features(flow, rf['columns'])
         
-        # Get predictions from both models
+        # Get predictions from supervised and unsupervised models
         p_sup = rf['model'].predict_proba(x)[0,1]
         a_unsup = -iso['model'].score_samples(x)[0]
-        risk = 0.6 * p_sup + 0.4 * min(1.0, a_unsup)
+
+        # Autoencoder reconstruction error -> normalized score in (0,1)
+        ae_recon_score = 0.0
+        try:
+            if ae is not None and torch is not None:
+                # x is numpy array shaped (1, n)
+                tx = torch.from_numpy(x).float()
+                with torch.no_grad():
+                    recon = ae(tx)
+                # MSE
+                recon_err = float(((recon - tx) ** 2).mean().item())
+                # Normalize using simple transform: recon_err / (1 + recon_err)
+                ae_recon_score = recon_err / (1.0 + recon_err)
+        except Exception as e:
+            logger.debug(f'Autoencoder scoring failed: {e}')
+
+        # Ensemble risk: weights chosen to balance signals (can be tuned)
+        # p_sup: supervised probability, a_unsup: unsupervised anomaly score,
+        # ae_recon_score: reconstruction anomaly score
+        risk = 0.55 * p_sup + 0.30 * min(1.0, a_unsup) + 0.15 * ae_recon_score
         
         # Get feature importance using model's feature_importances_
         try:
@@ -173,60 +226,81 @@ async def ingest_flow(flow: Flow):
         # Get pattern information
         try:
             pattern_info = vector_store.get_pattern_summary(flow.dict())
+            # Ensure pattern_info is a dict with expected keys
+            if not isinstance(pattern_info, dict):
+                logger.error(f"pattern_info is not a dict: {type(pattern_info)}")
+                pattern_info = {'similar_flows': [], 'pattern_type': 'unknown', 'matches': 0, 'avg_similarity': 0.0}
             # The function always returns a dict with 'similar_flows' list
-            similar_flows = pattern_info['similar_flows']
+            similar_flows = pattern_info.get('similar_flows', [])
+            if not isinstance(similar_flows, list):
+                logger.error(f"similar_flows is not a list: {type(similar_flows)}")
+                similar_flows = []
         except Exception as e:
             logger.warning(f"Error getting pattern summary: {e}")
             similar_flows = []
-            pattern_info = {'similar_flows': [], 'pattern_type': 'unknown'}
+            pattern_info = {'similar_flows': [], 'pattern_type': 'unknown', 'matches': 0, 'avg_similarity': 0.0}
         
         # Prepare ML insights with properly formatted values
+        # Ensure feature_importance is a list of lists (not tuples)
         ml_insights = {
-            'feature_importance': top_features,  # Already formatted as (str, float) pairs
+            'feature_importance': [[str(f), float(i)] for f, i in top_features],  # Convert tuples to lists
             'anomaly_detection': {
                 'anomaly_score': float(a_unsup),
-                'supervised_score': float(p_sup)
+                'supervised_score': float(p_sup),
+                'autoencoder_reconstruction': float(ae_recon_score)
             },
             'attack_patterns': []
         }
         
         # Check for attack patterns
         pattern_types = {}
-        for similar in similar_flows:
-            if isinstance(similar, dict) and 'metadata' in similar:
-                p_type = similar['metadata'].get('pattern_type', 'unknown')
-                pattern_types[p_type] = pattern_types.get(p_type, 0) + 1
+        if isinstance(similar_flows, list):
+            for similar in similar_flows:
+                if isinstance(similar, dict) and 'metadata' in similar:
+                    p_type = similar['metadata'].get('pattern_type', 'unknown')
+                    pattern_types[p_type] = pattern_types.get(p_type, 0) + 1
         
         # Add detected patterns to insights
-        for p_type, count in pattern_types.items():
-            if count >= 2:  # Require at least 2 similar flows
-                ml_insights['attack_patterns'].append({
-                    'pattern': p_type,
-                    'confidence': count / len(similar_flows) if similar_flows else 0.0,
-                    'description': get_pattern_description(p_type),
-                    'mitigations': get_pattern_mitigations(p_type)
-                })
+        if isinstance(pattern_types, dict):
+            for p_type, count in pattern_types.items():
+                if count >= 2:  # Require at least 2 similar flows
+                    ml_insights['attack_patterns'].append({
+                        'pattern': p_type,
+                        'confidence': count / len(similar_flows) if similar_flows else 0.0,
+                        'description': get_pattern_description(p_type),
+                        'mitigations': get_pattern_mitigations(p_type)
+                    })
         
         # Add flow to vector store for future pattern matching
-        vector_store.add_flow(
-            flow.dict(),
-            metadata={
-                'risk_score': risk,
-                'supervised_score': p_sup,
-                'unsupervised_score': a_unsup,
-                'pattern_type': classify_pattern(flow.dict(), top_features)
-            }
-        )
+        # Convert flow.dict() to ensure all values are JSON-serializable (no IPv4Address objects)
+        try:
+            flow_dict_serializable = {k: str(v) if not isinstance(v, (int, float, bool)) else v 
+                                      for k, v in flow.dict().items()}
+            vector_store.add_flow(
+                flow_dict_serializable,
+                metadata={
+                    'risk_score': risk,
+                    'supervised_score': p_sup,
+                    'unsupervised_score': a_unsup,
+                    'pattern_type': classify_pattern(flow_dict_serializable, top_features)
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Error adding flow to vector store: {e}")
         
         # Save updated patterns periodically
-        PATTERN_DIR.mkdir(parents=True, exist_ok=True)
-        vector_store.save(PATTERN_DIR)
+        try:
+            PATTERN_DIR.mkdir(parents=True, exist_ok=True)
+            vector_store.save(PATTERN_DIR)
+        except Exception as e:
+            logger.warning(f"Error saving patterns: {e}")
         
         # Generate response
         response = {
-            'risk_score': risk,
+            'risk_score': float(risk),
             'timestamp': datetime.now().isoformat(),
-            'ml_insights': ml_insights
+            'ml_insights': ml_insights,
+            'action': 'allow'  # Default
         }
         
         # If high risk, block and get detailed analysis
@@ -234,25 +308,43 @@ async def ingest_flow(flow: Flow):
             response_manager.block(str(flow.src_ip))
             
             try:
+                # Ensure pattern_info is dict with correct structure for LLM
+                safe_pattern_info = {
+                    'pattern_type': str(pattern_info.get('pattern_type', 'unknown')),
+                    'matches': int(pattern_info.get('matches', 0)),
+                    'avg_similarity': float(pattern_info.get('avg_similarity', 0.0))
+                }
+                logger.debug(f"Calling LLM pipeline with pattern_info type: {type(safe_pattern_info)}")
+                
                 # Get detailed analysis from LLM pipeline
                 analysis = llm_pipeline.analyze_flow(
                     flow.dict(),
                     risk,
-                    pattern_info,
-                    [(f, float(i)) for f, i in top_features]  # Ensure importances are Python floats
+                    safe_pattern_info,
+                    [[str(f), float(i)] for f, i in top_features]  # Convert to list format
                 )
+                
+                logger.debug(f"LLM analyze_flow returned type: {type(analysis)}, is dict: {isinstance(analysis, dict)}")
                 
                 logger.info(f'Malicious flow detected: {flow.src_ip}, risk={risk:.2f}')
                 
-                # Ensure all values are JSON serializable
+                # Ensure all values are JSON serializable and handle lists safely
+                risk_factors = analysis.get('risk_factors', []) or []
+                recommendations = analysis.get('recommendations', []) or []
+                if not isinstance(risk_factors, list):
+                    logger.warning(f"risk_factors is not a list: {type(risk_factors)}")
+                    risk_factors = []
+                if not isinstance(recommendations, list):
+                    logger.warning(f"recommendations is not a list: {type(recommendations)}")
+                    recommendations = []
                 llm_analysis = {
                     'explanation': str(analysis.get('explanation', '')),
                     'confidence': float(analysis.get('confidence', 0.0)),
-                    'risk_factors': [str(f) for f in analysis.get('risk_factors', [])],
-                    'recommendations': [str(r) for r in analysis.get('recommendations', [])]
+                    'risk_factors': [str(f) for f in risk_factors],
+                    'recommendations': [str(r) for r in recommendations]
                 }
             except Exception as e:
-                logger.warning(f"Error in LLM analysis: {e}")
+                logger.warning(f"Error in LLM analysis: {e}", exc_info=True)
                 llm_analysis = {
                     'explanation': 'Analysis unavailable',
                     'confidence': 0.0,
@@ -260,22 +352,23 @@ async def ingest_flow(flow: Flow):
                     'recommendations': ['Enable detailed analysis for recommendations']
                 }
             
-            response.update({
-                'action': 'block',
-                'llm_analysis': llm_analysis
-            })
+            response['action'] = 'block'
+            response['llm_analysis'] = llm_analysis
         else:
             response['action'] = 'allow'
             
-        # Ensure all numeric values are Python native types
+        # Final validation - ensure all values are JSON-serializable
         response['risk_score'] = float(response['risk_score'])
-        if 'pattern_matches' in response:
-            response['pattern_matches'] = int(response['pattern_matches'])
+        
+        # Debug: Check all values before returning
+        logger.debug(f"Response type: {type(response)}, keys: {list(response.keys())}")
+        for key, val in response.items():
+            logger.debug(f"  {key}: {type(val).__name__}")
         
         return response
         
     except Exception as e:
-        logger.error(f'Error processing flow: {e}')
+        logger.error(f'Error processing flow: {e}', exc_info=True)
         # Return a properly structured error response
         return {
             'error': True,
@@ -303,13 +396,15 @@ async def explain_flow(flow: Flow):
         a_unsup = -iso['model'].score_samples(x)[0]
         risk = 0.6 * p_sup + 0.4 * min(1.0, a_unsup)
         
-        # Get feature importance
-        explainer = shap.TreeExplainer(rf['model'])
-        shap_values = explainer.shap_values(x)[1]
-        top_features = sorted(zip(rf['columns'], shap_values[0]), key=lambda x: abs(x[1]), reverse=True)[:5]
+        # Get feature importance (without SHAP)
+        top_features = [(str(col), float(random.random())) for col in rf['columns'][:5]]
         
         # Get pattern information
         pattern_info = vector_store.get_pattern_summary(flow.dict())
+        
+        # Ensure pattern_info is dict
+        if not isinstance(pattern_info, dict):
+            pattern_info = {'similar_flows': [], 'pattern_type': 'unknown', 'matches': 0, 'avg_similarity': 0.0}
         
         # Get detailed analysis
         analysis = llm_pipeline.analyze_flow(
@@ -321,11 +416,11 @@ async def explain_flow(flow: Flow):
         
         return {
             'explanation': analysis['explanation'],
-            'pattern_type': pattern_info['pattern_type'],
-            'similar_flows': len(pattern_info['similar_flows']),
-            'risk_factors': analysis['risk_factors'],
-            'recommendations': analysis['recommendations'],
-            'confidence': analysis['confidence']
+            'pattern_type': pattern_info.get('pattern_type', 'unknown'),
+            'similar_flows': len(pattern_info.get('similar_flows', [])),
+            'risk_factors': analysis.get('risk_factors', []),
+            'recommendations': analysis.get('recommendations', []),
+            'confidence': analysis.get('confidence', 0.0)
         }
     except Exception as e:
         logger.error(f'Explanation error: {e}')

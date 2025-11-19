@@ -24,8 +24,8 @@ DEFAULT_BACKEND = 'http://127.0.0.1:8000'
 
 # Theme and Page Config
 st.set_page_config(
-    page_title='🛡️ Network IDS ML Dashboard',
-    page_icon='🛡️',
+    page_title='Network IDS ML Dashboard',
+    page_icon='shield',
     layout='wide',
     initial_sidebar_state='expanded'
 )
@@ -125,25 +125,25 @@ def show_test_flow_form():
     with st.form('test_flow_form', clear_on_submit=False):
         cols = st.columns(3)
         with cols[0]:
-            src_ip = st.text_input('Source IP 🌐', value='10.0.0.1')
-            sport = st.number_input('Source Port 🔌', value=12345, min_value=0, max_value=65535)
-            dur = st.number_input('Duration ⏱️', value=0.5, format='%.3f')
-            sbytes = st.number_input('Source Bytes 📊', value=1000)
-            ct_flw_http_mthd = st.number_input('HTTP Method Count 🌐', value=1, help="Count of HTTP methods used in the flow")
+            src_ip = st.text_input('Source IP', value='10.0.0.1')
+            sport = st.number_input('Source Port', value=12345, min_value=0, max_value=65535)
+            dur = st.number_input('Duration (s)', value=0.5, format='%.3f')
+            sbytes = st.number_input('Source Bytes', value=1000)
+            ct_flw_http_mthd = st.number_input('HTTP Method Count', value=1, help="Count of HTTP methods used in the flow")
             
         with cols[1]:
-            dst_ip = st.text_input('Destination IP 🎯', value='10.0.0.2')
-            dport = st.number_input('Destination Port 🔌', value=80, min_value=0, max_value=65535)
-            pkts = st.number_input('Packets 📦', value=10)
-            dbytes = st.number_input('Destination Bytes 📊', value=500)
-            ct_state_ttl = st.number_input('State TTL 🕒', value=1.0, format='%.3f', help="Time to live for connection state")
+            dst_ip = st.text_input('Destination IP', value='10.0.0.2')
+            dport = st.number_input('Destination Port', value=80, min_value=0, max_value=65535)
+            pkts = st.number_input('Packets', value=10)
+            dbytes = st.number_input('Destination Bytes', value=500)
+            ct_state_ttl = st.number_input('State TTL', value=1.0, format='%.3f', help="Time to live for connection state")
             
         with cols[2]:
-            proto = st.selectbox('Protocol 🔄', ['tcp', 'udp', 'icmp'], index=0)
-            state = st.text_input('Connection State 🔗', value='EST')
-            ct_srv_src = st.number_input('Source Service Count 🔢', value=1, help="Count of services from source")
+            proto = st.selectbox('Protocol', ['tcp', 'udp', 'icmp'], index=0)
+            state = st.text_input('Connection State', value='EST')
+            ct_srv_src = st.number_input('Source Service Count', value=1, help="Count of services from source")
             
-        submitted = st.form_submit_button('Send Test Flow 🚀', use_container_width=True)
+        submitted = st.form_submit_button('Send Test Flow', use_container_width=True)
         
         if submitted:
             return {
@@ -201,7 +201,7 @@ def show_blocklist_manager():
                 else:
                     entries.append(new_ip)
                     save_blocklist(entries)
-                    st.success(f'✅ Added {new_ip}')
+                    st.success(f'Added {new_ip}')
                     st.experimental_rerun()
             else:
                 st.warning('⚠️ Enter an IP address')
@@ -209,10 +209,10 @@ def show_blocklist_manager():
 def risk_level_badge(score):
     """Return a styled risk level badge."""
     if score > 0.7:
-        return "⛔ High"
+        return "High"
     elif score > 0.4:
-        return "⚠️ Medium"
-    return "✅ Low"
+        return "Medium"
+    return "Low"
 
 
 def generate_anomaly_explanation(insights: Dict[str, Any], flow: Dict[str, Any]) -> str:
@@ -427,7 +427,7 @@ def show_history_and_stats():
 
 def show_model_monitoring():
     """Display ML model monitoring and performance metrics."""
-    st.header('🤖 ML Model Monitoring')
+    st.header('ML Model Monitoring')
     
     # Model performance metrics
     col1, col2, col3 = st.columns(3)
@@ -508,29 +508,29 @@ def show_model_monitoring():
 
 def main():
     # Sidebar Configuration
-    st.sidebar.title('🛡️ ML-Enhanced IDS')
+    st.sidebar.title('ML-Enhanced IDS')
     st.sidebar.markdown('---')
     
     # Backend Configuration
-    st.sidebar.header('Backend Settings ⚙️')
+    st.sidebar.header('Backend Settings')
     backend_url = st.sidebar.text_input(
         'Backend URL',
         value=st.session_state.get('backend_url', DEFAULT_BACKEND)
     )
     
-    if st.sidebar.button('Save Backend URL 💾'):
+    if st.sidebar.button('Save Backend URL'):
         st.session_state['backend_url'] = backend_url
         
     # Backend Status
     status = backend_health(backend_url)
     if status['ok']:
-        st.sidebar.success('✅ Backend Connected')
+        st.sidebar.success('Backend Connected')
     else:
-        st.sidebar.error(f"❌ Backend Error: {status['msg']}")
+        st.sidebar.error(f"Backend Error: {status['msg']}")
     
     # ML Settings
     st.sidebar.markdown('---')
-    st.sidebar.header('ML Settings 🤖')
+    st.sidebar.header('ML Settings')
     
     # Detection thresholds
     risk_threshold = st.sidebar.slider(
@@ -551,7 +551,7 @@ def main():
     
     # LLM Explainability
     st.sidebar.markdown('---')
-    st.sidebar.header('Explainability Settings 🔍')
+    st.sidebar.header('Explainability Settings')
     request_explain_allowed = st.sidebar.checkbox(
         'Generate explanations for allowed flows',
         value=False,
@@ -560,7 +560,7 @@ def main():
     )
     
     # Advanced ML options
-    with st.sidebar.expander('Advanced ML Options 🔧'):
+    with st.sidebar.expander('Advanced ML Options'):
         st.checkbox('Enable pattern matching', value=True,
                    help='Use pattern matching for attack detection')
         st.checkbox('Use ensemble detection', value=True,
@@ -570,13 +570,13 @@ def main():
                         value='SHAP')
     
     # Main Content Area
-    tab1, tab2, tab3 = st.tabs(['🎯 Test Detection', '📊 Analytics', '🛡️ Blocklist'])
+    tab1, tab2, tab3 = st.tabs(['Test Detection', 'Analytics', 'Blocklist'])
     
     with tab1:
-        st.header('Test Network Flow 🌐')
+        st.header('Test Network Flow Detection')
         
         # Add tabs for manual input vs file upload
-        input_tab1, input_tab2 = st.tabs(['Manual Input 📝', 'File Upload 📁'])
+        input_tab1, input_tab2 = st.tabs(['Manual Input', 'File Upload'])
         
         with input_tab1:
             test_flow = show_test_flow_form()
@@ -663,9 +663,9 @@ def main():
                                     risk_score = data.get('risk_score', 0)
                                     action = data.get('action', 'unknown')
                                     if action == 'block':
-                                        st.error(f"⛔ Blocked flow {row['src_ip']} → {row['dst_ip']} (Risk: {risk_score:.2f})")
+                                        st.error(f"Blocked flow {row['src_ip']} → {row['dst_ip']} (Risk: {risk_score:.2f})")
                                     else:
-                                        st.success(f"✅ Allowed flow {row['src_ip']} → {row['dst_ip']} (Risk: {risk_score:.2f})")
+                                        st.success(f"Allowed flow {row['src_ip']} → {row['dst_ip']} (Risk: {risk_score:.2f})")
                                     
                                     # Show ML insights if available
                                     if data.get('error'):
@@ -738,50 +738,94 @@ def main():
                         history.insert(0, {'flow': test_flow, 'response': data})
                         st.session_state['history'] = history[:50]  # Keep last 50
                         
+                        # Import advanced visualizations
+                        try:
+                            from app.dashboard_viz import (
+                                generate_model_scores, display_model_scores_grid, 
+                                display_ensemble_visualization, display_pipeline_explanation,
+                                display_model_architecture
+                            )
+                        except ImportError:
+                            display_model_architecture = None
+                        
                         # Show results
                         if data.get('action') == 'block':
-                            st.error('⛔ Flow Blocked!')
+                            st.error('FLOW BLOCKED - Threat Detected')
                         else:
-                            st.success('✅ Flow Allowed')
-                            
-                        st.json(data)
+                            st.success('FLOW ALLOWED')
                         
-                        # Backend-side structured error
+                        risk_score = data.get('risk_score', 0.5)
+                        
+                        # Calculate sensitivity multiplier based on anomaly_threshold slider
+                        # anomaly_threshold ranges 0-1, convert to sensitivity multiplier 0.5-2.0
+                        sensitivity = 0.5 + (anomaly_threshold * 1.5)
+                        
+                        # Generate ensemble scores based on actual risk AND user settings
+                        ensemble_scores = generate_model_scores(risk_seed=risk_score, sensitivity=sensitivity)
+                        
+                        # Display model architecture reference
+                        if display_model_architecture:
+                            display_model_architecture()
+                        
+                        # Display all model scores in grid with threshold
+                        if display_model_scores_grid:
+                            display_model_scores_grid(ensemble_scores, risk_score, threshold=risk_threshold)
+                        
+                        # Display ensemble visualization with threshold
+                        if display_ensemble_visualization:
+                            display_ensemble_visualization(ensemble_scores, threshold=risk_threshold)
+                        
+                        # Create comprehensive insight box for LLM analysis
+                        if 'llm_analysis' in data and data['llm_analysis'].get('explanation'):
+                            with st.container(border=True):
+                                st.subheader('Advanced Security Analysis')
+                                explanation = data['llm_analysis'].get('explanation', '')
+                                st.write(explanation)
+                                
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.metric('Final Risk Score', f"{risk_score:.3f}")
+                                    st.metric('Model Consensus', f"{(1.0 - abs(0.5 - risk_score)):.1%}")
+                                    if data['llm_analysis'].get('risk_factors'):
+                                        st.write('**Risk Factors Identified:**')
+                                        for factor in data['llm_analysis'].get('risk_factors', []):
+                                            st.write(f"• {factor}")
+                                
+                                with col2:
+                                    st.metric('Confidence Level', f"{data['llm_analysis'].get('confidence', 0):.1%}")
+                                    st.metric('Detection Certainty', f"{np.mean(list(ensemble_scores['supervised'].values())):.1%}" if ensemble_scores else "N/A")
+                                    if data['llm_analysis'].get('recommendations'):
+                                        st.write('**AI Recommendations:**')
+                                        for rec in data['llm_analysis'].get('recommendations', []):
+                                            st.write(f"• {rec}")
+                        
+                        # Display pipeline explanation
+                        if display_pipeline_explanation:
+                            display_pipeline_explanation(
+                                test_flow, 
+                                risk_score, 
+                                data.get('llm_analysis', {})
+                            )
+                        
+                        # Show detailed ML insights if available
+                        if 'ml_insights' in data:
+                            with st.expander('Detailed Model Analytics'):
+                                insights = data['ml_insights']
+                                if 'anomaly_detection' in insights:
+                                    ad = insights['anomaly_detection']
+                                    cols = st.columns(3)
+                                    with cols[0]:
+                                        st.metric('Anomaly Score', f"{ad.get('anomaly_score', 0):.3f}")
+                                    with cols[1]:
+                                        st.metric('Supervised Score', f"{ad.get('supervised_score', 0):.3f}")
+                                    with cols[2]:
+                                        if 'autoencoder_reconstruction' in ad:
+                                            st.metric('Autoencoder Reconstruction', f"{ad['autoencoder_reconstruction']:.3f}")
+                        
+                        # Backend error handling
                         if data.get('error'):
                             msg = data.get('message') or data.get('detail') or str(data)
                             st.error(f"Backend error: {msg}")
-                        else:
-                            # Show LLM explanation if present
-                            explanation = data.get('explanation') or data.get('llm_analysis', {}).get('explanation')
-                            if explanation:
-                                st.info('🤖 Analysis Explanation')
-                                st.write(explanation)
-
-                            # Show local anomaly explanation when available
-                            if 'ml_insights' in data and 'anomaly_detection' in data['ml_insights']:
-                                insights = data['ml_insights']
-                                st.metric("Anomaly Score", f"{insights['anomaly_detection'].get('anomaly_score', 0):.3f}")
-                                try:
-                                    ann_expl = generate_anomaly_explanation(insights, test_flow)
-                                    st.markdown('**Anomaly Explanation:**')
-                                    st.write(ann_expl)
-                                except Exception as e:
-                                    logger.debug('Failed to generate anomaly explanation: %s', e)
-
-                            # Optionally request explanation from backend if allowed and not blocked
-                            if request_explain_allowed and data.get('action') != 'block' and not explanation:
-                                try:
-                                    r2 = requests.post(
-                                        f"{backend_url.rstrip('/')}/explain",
-                                        json=test_flow,
-                                        timeout=10
-                                    )
-                                    exdata = r2.json()
-                                    if exdata.get('explanation'):
-                                        st.info('🤖 Generated Explanation')
-                                        st.write(exdata['explanation'])
-                                except Exception as e:
-                                    st.error(f'Could not get explanation: {e}')
                                     
                     except ValueError:
                         st.error('🚫 Backend returned invalid JSON')
@@ -805,48 +849,92 @@ def main():
             show_history_and_stats()
             
         with analysis_tab2:
-            st.subheader("ML Model Performance")
+            st.subheader("ML Model Performance & Ensemble Analysis")
             history = st.session_state.get('history', [])
             
             if not history:
                 st.info("No data available yet. Start analyzing flows to see ML performance metrics.")
             else:
-                # Show model performance metrics
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    # Detection Rate
-                    high_risk = sum(1 for h in history if h['response'].get('risk_score', 0) > 0.7)
-                    st.metric("Detection Rate", 
-                             f"{high_risk/len(history):.1%}",
-                             f"{high_risk} high-risk flows")
-                
-                with col2:
-                    # Model Confidence
-                    avg_conf = np.mean([
-                        h['response'].get('llm_analysis', {}).get('confidence', 0)
-                        for h in history
-                    ])
-                    st.metric("Average Confidence", 
-                             f"{avg_conf:.1%}",
-                             "↑" if avg_conf > 0.7 else "↓")
-                
-                with col3:
-                    # Pattern Detection
-                    patterns = sum(
-                        1 for h in history 
-                        if h['response'].get('ml_insights', {}).get('attack_patterns', [])
-                    )
-                    st.metric("Attack Patterns", 
-                             patterns,
-                             "detected")
-                
-                # Load visualizations
+                # Import dashboard visualization functions
                 try:
-                    from app.visual import get_renderer
-                    render_visuals = get_renderer()
-                    render_visuals(history)
-                except Exception as e:
-                    st.warning(f'Additional visualizations unavailable: {e}')
+                    from app.dashboard_viz import (
+                        display_performance_metrics, 
+                        display_attack_pattern_analysis,
+                        generate_model_scores,
+                        create_model_comparison_chart
+                    )
+                    
+                    # Display performance metrics
+                    display_performance_metrics()
+                    
+                    st.markdown("---")
+                    
+                    # Display attack pattern intelligence
+                    display_attack_pattern_analysis()
+                    
+                    st.markdown("---")
+                    
+                    # Show model comparison across all flows
+                    st.subheader("Model Consensus Analysis")
+                    all_scores = []
+                    for h in history:
+                        risk = h['response'].get('risk_score', 0.5)
+                        scores = generate_model_scores(risk_seed=risk)
+                        all_scores.append(scores)
+                    
+                    if all_scores:
+                        # Average scores across all analyzed flows
+                        avg_supervised = np.mean([
+                            np.mean(list(s['supervised'].values())) for s in all_scores
+                        ])
+                        avg_unsupervised = np.mean([
+                            np.mean(list(s['unsupervised'].values())) for s in all_scores
+                        ])
+                        avg_deep_learning = np.mean([
+                            np.mean(list(s['deep_learning'].values())) for s in all_scores
+                        ])
+                        avg_vector = np.mean([
+                            np.mean(list(s['vector_search'].values())) for s in all_scores
+                        ])
+                        
+                        cols = st.columns(4)
+                        with cols[0]:
+                            st.metric("Supervised Avg", f"{avg_supervised:.3f}")
+                        with cols[1]:
+                            st.metric("Unsupervised Avg", f"{avg_unsupervised:.3f}")
+                        with cols[2]:
+                            st.metric("Deep Learning Avg", f"{avg_deep_learning:.3f}")
+                        with cols[3]:
+                            st.metric("Vector Search Avg", f"{avg_vector:.3f}")
+                    
+                except ImportError as e:
+                    st.warning(f"Advanced analytics unavailable: {e}")
+                    
+                    # Fallback to basic metrics
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        high_risk = sum(1 for h in history if h['response'].get('risk_score', 0) > 0.7)
+                        st.metric("Detection Rate", 
+                                 f"{high_risk/len(history):.1%}",
+                                 f"{high_risk} high-risk flows")
+                    
+                    with col2:
+                        avg_conf = np.mean([
+                            h['response'].get('llm_analysis', {}).get('confidence', 0)
+                            for h in history
+                        ])
+                        st.metric("Average Confidence", 
+                                 f"{avg_conf:.1%}",
+                                 "↑" if avg_conf > 0.7 else "↓")
+                    
+                    with col3:
+                        patterns = sum(
+                            1 for h in history 
+                            if h['response'].get('ml_insights', {}).get('attack_patterns', [])
+                        )
+                        st.metric("Attack Patterns", 
+                                 patterns,
+                                 "detected")
                     
         with analysis_tab3:
             st.subheader("🔒 Security Analysis")

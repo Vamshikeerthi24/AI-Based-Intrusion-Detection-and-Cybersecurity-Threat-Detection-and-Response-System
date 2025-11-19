@@ -87,7 +87,7 @@ class LLMPipeline:
                              flow: Dict[str, Any],
                              risk_score: float,
                              pattern_info: Dict[str, Any],
-                             feature_importance: Optional[List[tuple]] = None) -> str:
+                             feature_importance: Optional[List] = None) -> str:
         """Build a detailed prompt for flow analysis."""
         prompt_parts = [
             "Analyze this network flow for potential security threats:\n",
@@ -104,10 +104,16 @@ class LLMPipeline:
         ]
         
         if feature_importance:
-            prompt_parts.extend([
-                "\nKey Features:",
-                *[f"- {feat}: {imp:.3f}" for feat, imp in feature_importance[:3]]
-            ])
+            prompt_parts.append("\nKey Features:")
+            try:
+                # Handle both list and tuple formats
+                for item in feature_importance[:3]:
+                    if isinstance(item, (list, tuple)) and len(item) >= 2:
+                        feat, imp = item[0], item[1]
+                        prompt_parts.append(f"- {feat}: {float(imp):.3f}")
+            except (TypeError, ValueError, IndexError) as e:
+                # Silently skip if format is unexpected
+                pass
             
         prompt_parts.extend([
             "\nProvide:",
