@@ -172,7 +172,18 @@ BLOCK_TTL_MINUTES=30
 LOG_LEVEL=INFO
 DEBUG=false
 Fallback values in config/config.yaml.
-![alt text](image-2.png)
+
+
+Machine Learning Ensemble Composition
+
+| Category             | Models Included                                                  | Weight             |
+|----------------------|------------------------------------------------------------------|--------------------|
+| Supervised           | Random Forest, Gradient Boosting, SVM (RBF)                      | 55%                |
+| Unsupervised         | Isolation Forest, LOF, Dense Autoencoder, LSTM-AE                | 30%                |
+| Deep Learning        | Neural Network Ensemble, LSTM, Transformer-based                | 15%                |
+| Vector Pattern       | FAISS + TF-IDF semantic similarity matching                      | Contextual boost   |
+
+
 Operations Dashboard Features
 
 Manual flow testing + CSV batch upload with validation
