@@ -2,9 +2,9 @@
 
 **Enterprise-Grade · Production-Ready · Research-Level Implementation**  
 **Author:** Vamshi Krishna  
-**Program:** Master’s in Cybersecurity & Artificial Intelligence  
+**Program:** Cybersecurity & Artificial Intelligence  
 **Completion Date:** November 19, 2025  
-**Status:** Fully Operational · Actively Maintained · Presentation-Ready  
+**Status:** Fully Operational · Actively Maintained 
 
 ---
 
