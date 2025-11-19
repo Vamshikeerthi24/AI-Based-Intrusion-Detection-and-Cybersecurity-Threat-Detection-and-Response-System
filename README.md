@@ -97,7 +97,18 @@ textids_repoV1/
 
 Technology Stack (Production Versions)
 
-
+| Layer                  | Technology               | Version        | Purpose                                      |
+|------------------------|--------------------------|----------------|----------------------------------------------|
+| Backend Framework      | FastAPI                  | ≥0.109.0       | High-performance API                         |
+| ASGI Server            | Uvicorn                  | ≥0.27.0        | Production server                            |
+| Frontend Dashboard     | Streamlit                | ≥1.39.0        | Operations interface                         |
+| Classical ML           | scikit-learn             | 1.7.2          | Core supervised/unsupervised models          |
+| Deep Learning          | PyTorch (CPU)            | 2.9.1          | Autoencoders, LSTM, Transformer              |
+| Vector Search          | FAISS-CPU                | 1.7.4          | Attack pattern memory                        |
+| LLM Interface          | OpenAI Python SDK        | ≥1.3.0         | GPT-4 structured analysis                    |
+| Data Processing        | pandas / NumPy           | 2.2.0 / 1.24+  | Flow manipulation                            |
+| Explainability         | SHAP                     | ≥0.42.0        | Feature importance (fallback)                |
+| Configuration          | PyYAML + python-dotenv   | Latest         | Secure config management                     |
 ![alt text](image.png)
 
 One-Click Enterprise Deployment
